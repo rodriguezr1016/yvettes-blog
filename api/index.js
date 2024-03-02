@@ -1,5 +1,5 @@
 
-//mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority
+//mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/mern-blog?retryWrites=true&w=majority
 
 const express = require('express');
 const cors = require('cors');
@@ -22,7 +22,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
-mongoose.connect('mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
 
 app.post('/register', async (req,res) => {
     const {username,email, password, firstName, lastName} = req.body;
