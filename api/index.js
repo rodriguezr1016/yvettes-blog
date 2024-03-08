@@ -10,12 +10,14 @@ const bcrypt = require('bcryptjs');
 const app = express();
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
-const multer = require('multer');
-const uploadMiddleware = multer({ dest: 'uploads/' });
 const fs = require('fs');
-
+const multer = require('multer');
+const uploadMiddleware = multer({ dest: '/tmp' });
+require('dotenv').config();
+const {S3Client, PutObjectCommand} = require('@aws-sdk/client-s3')
 const salt = bcrypt.genSaltSync(10);
 const secret = 'asdfe45we45w345wegw345werjktjwertkj';
+const bucket = 'yvettes-blog-app'
 
 app.use(cors({credentials:true,origin:'http://localhost:3000'}));
 app.use(express.json());
@@ -23,6 +25,30 @@ app.use(cookieParser());
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
 mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
+
+async function uploadToS3(path, originalFilename, mimetype) {
+  const client = new S3Client({
+    region: 'us-west-1',
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY,
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    },
+  });
+  const parts = originalFilename.split('.');
+  const ext = parts[parts.length - 1];
+  const newFileName = Date.now() + '.' + ext;
+    const data = await client.send(new PutObjectCommand({
+      Bucket: bucket,
+      Body: fs.readFileSync(path),
+      Key: newFileName,
+      ContentType: mimetype,
+      ACL: 'public-read',
+    }));
+    return `https://${bucket}.s3.amazonaws.com/${newFileName}`;
+    // console.log({data})
+
+
+}
 
 app.post('/register', async (req,res) => {
     const {username,email, password, firstName, lastName} = req.body;
@@ -72,11 +98,13 @@ app.post('/logout', (req,res) => {
 });
 
 app.post('/post', uploadMiddleware.single('file'), async (req,res) => {
-  const {originalname,path} = req.file;
-  const parts = originalname.split('.');
-  const ext = parts[parts.length - 1];
-  const newPath = path+'.'+ext;
-  fs.renameSync(path, newPath);
+  const {originalname,path, mimetype} = req.file;
+  // const parts = originalname.split('.');
+  // const ext = parts[parts.length - 1];
+  // const newPath = path+'.'+ext;
+  // fs.renameSync(path, newPath);
+  const url = await uploadToS3(path, originalname, mimetype);
+  console.log(url)
 
   const {token} = req.cookies;
   jwt.verify(token, secret, {}, async (err,info) => {
@@ -86,7 +114,7 @@ app.post('/post', uploadMiddleware.single('file'), async (req,res) => {
       title,
       summary,
       content,
-      cover:newPath,
+      cover:url,
       author:info.id,
       firstName: info.firstName,
       lastName: info.lastName
@@ -96,7 +124,7 @@ app.post('/post', uploadMiddleware.single('file'), async (req,res) => {
 
 });
 
-app.put('/post',uploadMiddleware.single('file'), async (req,res) => {
+app.put('/post', async (req,res) => {
   let newPath = null;
   if (req.file) {
     const {originalname,path} = req.file;
