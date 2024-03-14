@@ -24,7 +24,6 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
 
 async function uploadToS3(path, originalFilename, mimetype) {
   const client = new S3Client({
@@ -51,6 +50,7 @@ async function uploadToS3(path, originalFilename, mimetype) {
 }
 
 app.post('/register', async (req,res) => {
+     mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
     const {username,email, password, firstName, lastName} = req.body;
     try{
       const userDoc = await User.create({
@@ -68,6 +68,7 @@ app.post('/register', async (req,res) => {
   });
 
 app.post('/login', async (req,res) => {
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
   const {username,password} = req.body;
   const userDoc = await User.findOne({username});
   const passOk = bcrypt.compareSync(password, userDoc.password);
@@ -86,6 +87,7 @@ app.post('/login', async (req,res) => {
 });
 
 app.get('/profile', (req,res) => {
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
   const {token} = req.cookies;
   jwt.verify(token, secret, {}, (err,info) => {
     if (err) throw err;
@@ -98,6 +100,7 @@ app.post('/logout', (req,res) => {
 });
 
 app.post('/post', uploadMiddleware.single('file'), async (req,res) => {
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
   const {originalname,path, mimetype} = req.file;
   // const parts = originalname.split('.');
   // const ext = parts[parts.length - 1];
@@ -124,14 +127,15 @@ app.post('/post', uploadMiddleware.single('file'), async (req,res) => {
 
 });
 
-app.put('/post', async (req,res) => {
+app.put('/post', uploadMiddleware.single('file'), async (req,res) => {
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
   let newPath = null;
+  let url = '';
   if (req.file) {
-    const {originalname,path} = req.file;
-    const parts = originalname.split('.');
-    const ext = parts[parts.length - 1];
-    newPath = path+'.'+ext;
-    fs.renameSync(path, newPath);
+    const {originalname,path, mimetype} = req.file;
+    url = await uploadToS3(path, originalname, mimetype);
+
+    // fs.renameSync(path, newPath);
   }
 
   const {token} = req.cookies;
@@ -147,15 +151,16 @@ app.put('/post', async (req,res) => {
       title,
       summary,
       content,
-      cover: newPath ? newPath : postDoc.cover,
+      cover: url ? url : postDoc.cover,
     });
 
-    res.json(postDoc);
+    res.json(url);
   });
 
 });
 
 app.get('/post', async (req,res) => {
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
   res.json(
     await Post.find()
       .populate('author', ['username'])
@@ -165,11 +170,13 @@ app.get('/post', async (req,res) => {
 });
 
 app.get('/post/:id', async (req, res) => {
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
   const {id} = req.params;
   const postDoc = await Post.findById(id).populate('author', ['username']);
   res.json(postDoc);
 })
 app.delete('/post/:id', async (req,res) => {
+       mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://rodriguezr1016:KQ12X2Yf9tzVOvXs@cluster0.tjqbolj.mongodb.net/?retryWrites=true&w=majority');
     
       const {id} = req.params;
       const postDoc = await Post.findById(id);
